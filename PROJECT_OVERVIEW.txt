@@ -1,0 +1,212 @@
+8051 SIMULATOR - PROJECT OVERVIEW
+=====================================
+
+ARCHITECTURE FLOW:
+                                                      
+    ┌─────────────────────────────────────────────────┐
+    │              main.dart                          │
+    │   ┌─────────────────────────────────┐          │
+    │   │  Simulator8051App                │          │
+    │   │  - Material 3 Theming            │          │
+    │   │  - Provider initialization       │          │
+    │   └─────────────┬───────────────────┘          │
+    └─────────────────┼───────────────────────────────┘
+                      │
+                      ▼
+    ┌─────────────────────────────────────────────────┐
+    │         SimulatorProvider                       │
+    │   ┌─────────────────────────────────┐          │
+    │   │  State Management                │          │
+    │   │  - Load hex file                 │          │
+    │   │  - Control execution             │          │
+    │   │  - Track changes                 │          │
+    │   │  - Generate disassembly          │          │
+    │   └─────────────┬───────────────────┘          │
+    └─────────────────┼───────────────────────────────┘
+                      │
+                      ▼
+    ┌─────────────────────────────────────────────────┐
+    │              Cpu8051                            │
+    │   ┌─────────────────────────────────┐          │
+    │   │  Core Emulation Engine           │          │
+    │   │  - 256 bytes RAM                 │          │
+    │   │  - Registers (A,B,PC,SP,DPTR)   │          │
+    │   │  - Instruction decoder           │          │
+    │   │  - step() / fetch() / execute()  │          │
+    │   │  - 255 opcodes implemented       │          │
+    │   └─────────────────────────────────┘          │
+    └─────────────────────────────────────────────────┘
+
+
+UI COMPONENT TREE:
+                                                      
+    HomeScreen
+    ├── AppBar
+    │   ├── Title + Filename
+    │   ├── Load Button ───────► FilePicker ───► HexParser
+    │   ├── Reset Button
+    │   └── TabBar
+    │       ├── Code Tab
+    │       ├── Registers Tab
+    │       └── Memory Tab
+    │
+    ├── TabBarView
+    │   ├── DisassemblyView
+    │   │   ├── Header (instruction count)
+    │   │   └── ListView (address, bytes, mnemonic)
+    │   │       └── Auto-scroll to PC
+    │   │
+    │   ├── RegistersView
+    │   │   ├── Main Registers Card (A, B, PC, SP, DPTR)
+    │   │   ├── PSW Flags Card (C, AC, F0, OV, P)
+    │   │   └── Register Bank Card (R0-R7)
+    │   │
+    │   └── MemoryView
+    │       ├── Header (256 bytes label)
+    │       └── 16×16 Grid
+    │           └── Highlight changed cells
+    │
+    ├── BottomNavigationBar
+    │   ├── Step Button ────────► simulator.step()
+    │   └── Run/Pause Button ───► simulator.run() / stop()
+    │
+    └── FloatingActionButton
+        └── Speed Control ──────► Slider (10-1000ms)
+
+
+DATA FLOW:
+                                                      
+    1. Load HEX File
+       User taps Load → FilePicker → Read file
+       → HexParser.parse() → Cpu8051.loadProgram()
+       → SimulatorProvider.notifyListeners()
+       → UI rebuilds with program loaded
+
+    2. Execute Instruction
+       User taps Step/Run → SimulatorProvider.step()
+       → Cpu8051.fetch() → Cpu8051.executeInstruction()
+       → Update RAM/Registers/Flags/PC
+       → SimulatorProvider.notifyListeners()
+       → UI rebuilds with new state
+
+    3. View State
+       UI watches SimulatorProvider
+       → Calls getRegistersMap() / getRamCopy()
+       → Displays current CPU state
+       → Highlights current PC in code
+       → Shows changed memory locations
+
+
+FILE SIZES (approximate):
+                                                      
+    lib/models/cpu_8051.dart           ~1150 lines ███████████
+    lib/providers/simulator_provider   ~900 lines  ██████████
+    lib/screens/home_screen.dart       ~280 lines  ███
+    lib/widgets/registers_view.dart    ~210 lines  ██
+    lib/widgets/memory_view.dart       ~180 lines  ██
+    lib/widgets/disassembly_view.dart  ~170 lines  ██
+    lib/utils/hex_parser.dart          ~130 lines  █
+    lib/main.dart                      ~130 lines  █
+
+
+INSTRUCTION COVERAGE:
+                                                      
+    ✓ Data Transfer    MOV, PUSH, POP, XCH, XCHD
+    ✓ Arithmetic       ADD, ADDC, SUBB, INC, DEC, MUL, DIV, DA
+    ✓ Logic            ANL, ORL, XRL, CLR, CPL, SWAP
+    ✓ Boolean          SETB, CLR, CPL (bit operations)
+    ✓ Branching        JMP, SJMP, LJMP, AJMP, JZ, JNZ, JC, JNC,
+                       JB, JNB, JBC, CJNE, DJNZ
+    ✓ Subroutines      LCALL, ACALL, RET, RETI
+    ✓ Rotate           RL, RLC, RR, RRC
+    ✓ Special          NOP, MOVC
+
+
+FEATURES MATRIX:
+                                                      
+    Feature                  Status    Notes
+    ─────────────────────────────────────────────────
+    Intel HEX loading        ✅        Full support
+    Instruction execution    ✅        255 opcodes
+    Register display         ✅        All registers + flags
+    Memory viewer            ✅        256 bytes with highlighting
+    Disassembly              ✅        Real-time decode
+    Step execution           ✅        Single step
+    Continuous run           ✅        Adjustable speed
+    Reset                    ✅        Full state reset
+    Dark/Light theme         ✅        Auto-switching
+    Error handling           ✅        File & execution errors
+    
+    Timers                   ❌        V2 feature
+    Interrupts               ❌        V2 feature
+    Serial I/O               ❌        V2 feature
+    Breakpoints              ❌        V2 feature
+    External RAM             ❌        Not in scope
+
+
+PERFORMANCE:
+                                                      
+    Execution Speed:     10-1000ms per instruction (user-adjustable)
+    Memory Usage:        ~256 bytes RAM + sparse program memory
+    UI Refresh Rate:     Every instruction (step) or timed (run)
+    Startup Time:        <2 seconds typical
+    File Load Time:      <1 second for typical .hex files
+
+
+TECH STACK:
+                                                      
+    Framework:       Flutter 3.2.0+
+    Language:        Dart 3.2.0+
+    State Mgmt:      Provider 6.1.1
+    UI:              Material 3
+    Fonts:           JetBrains Mono (Google Fonts)
+    File Picker:     file_picker 8.0.0+
+    
+    Target Platforms:
+    ✓ Android 5.0+ (API 21+)
+    ✓ iOS 12.0+
+    ✓ Linux (Desktop)
+    ✓ macOS (Desktop)
+    ✓ Windows (Desktop)
+
+
+MEMORY MAP:
+                                                      
+    0x00-0x07   Register Bank 0 (R0-R7)
+    0x08-0x0F   Register Bank 1
+    0x10-0x17   Register Bank 2
+    0x18-0x1F   Register Bank 3
+    0x20-0x2F   Bit-addressable RAM
+    0x30-0x7F   General purpose RAM
+    
+    0x80        P0 (Port 0) *
+    0x81        SP (Stack Pointer)
+    0x82        DPL (Data Pointer Low)
+    0x83        DPH (Data Pointer High)
+    ...         (Other SFRs)
+    0xD0        PSW (Program Status Word)
+    0xE0        A (Accumulator)
+    0xF0        B Register
+    
+    * Ports not fully functional in V1
+
+
+GETTING STARTED CHECKLIST:
+                                                      
+    ☑ Dependencies installed (flutter pub get) ✓
+    ☐ Run app: flutter run
+    ☐ Load examples/sample_program.hex
+    ☐ Try step execution
+    ☐ Try continuous run
+    ☐ Explore all three tabs
+    ☐ Test dark/light theme switching
+    ☐ Adjust execution speed
+    ☐ Create your own .hex file
+    ☐ Customize UI colors/themes
+    ☐ Read DEVELOPMENT.md for details
+
+
+For detailed documentation, see:
+- README.md        (User guide)
+- QUICKSTART.md    (Setup instructions)
+- DEVELOPMENT.md   (Developer reference)

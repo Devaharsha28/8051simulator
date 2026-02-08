@@ -1,0 +1,46 @@
+name: simulator_8051
+description: A clean and minimal 8051 Microcontroller Simulator for educational use.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # File picking for .hex files
+  file_picker: ^8.0.0+1
+  
+  # Beautiful monospaced fonts for code display
+  google_fonts: ^6.1.0
+  
+  # State management
+  provider: ^6.1.1
+  
+  # Syntax highlighting for disassembly
+  flutter_highlight: ^0.7.0
+  
+  # UI icons
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  windows:
+    generate: true
+    image_path: "8051.png"
+    icon_size: 256
+  image_path: "8051.png"
+  adaptive_icon_background: "#007AFF"
+  adaptive_icon_foreground: "8051.png"
+
+flutter:
+  uses-material-design: true
