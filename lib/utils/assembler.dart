@@ -306,6 +306,8 @@ class Assembler8051 {
     } else if (mnemonic == 'ADD' || mnemonic == 'ADDC' || mnemonic == 'SUBB' ||
                mnemonic == 'ANL' || mnemonic == 'ORL' || mnemonic == 'XRL') {
       bytes.addAll(_assembleArithLogic(mnemonic, parts));
+    } else if (mnemonic == 'CJNE') {
+      bytes.addAll(_assembleCjne(parts, address));
     } else {
       throw Exception('Unknown instruction: $mnemonic');
     }
@@ -468,6 +470,32 @@ class Assembler8051 {
       return [baseOpcode - 4, _parseNumber(src.substring(1))];
     } else {
       return [baseOpcode - 3, _getDirectAddress(src)];
+    }
+  }
+
+  List<int> _assembleCjne(List<String> parts, int currentAddr) {
+    if (parts.length < 4) throw Exception('CJNE requires three operands');
+    
+    final op1 = parts[1];
+    final op2 = parts[2];
+    final target = parts[3];
+    final targetAddr = _resolveLabel(target);
+    final offset = targetAddr - (currentAddr + 3);
+    
+    if (op1 == 'A') {
+      if (op2.startsWith('#')) {
+        return [0xB4, _parseNumber(op2.substring(1)), offset & 0xFF];
+      } else {
+        return [0xB5, _getDirectAddress(op2), offset & 0xFF];
+      }
+    } else if (_isRegister(op1)) {
+      if (!op2.startsWith('#')) throw Exception('CJNE Rn requires immediate operand');
+      return [0xB8 + _getRegisterNumber(op1), _parseNumber(op2.substring(1)), offset & 0xFF];
+    } else if (op1.startsWith('@')) {
+      if (!op2.startsWith('#')) throw Exception('CJNE @Ri requires immediate operand');
+      return [0xB6 + _getIndirectRegister(op1), _parseNumber(op2.substring(1)), offset & 0xFF];
+    } else {
+      throw Exception('Invalid first operand for CJNE: $op1');
     }
   }
 

@@ -231,27 +231,18 @@ START:
     ; Initialize
     MOV R0, #40H       ; Pointer to array
     MOV A, @R0         ; Load first element as max
-    MOV R2, #04H       ; Remaining elements
+    MOV R2, #04H       ; Remaining elements to check
     INC R0             ; Move to next element
     
 FIND_MAX:
+    CLR C              ; Clear carry for subtraction
     MOV R3, A          ; Save current max
     MOV A, @R0         ; Load next element
-    CLR C              ; Clear carry
-    SUBB A, R3         ; Compare with current max
-    JC NOT_MAX         ; If carry, current is smaller
-    MOV A, @R0         ; Load the larger value
-NOT_MAX:
-    MOV A, R3          ; Restore max if needed
-    MOV A, @R0
-    SUBB A, R3
-    JNC UPDATE_MAX
-    MOV A, R3
-    SJMP NEXT
-UPDATE_MAX:
-    MOV A, @R0
+    SUBB A, R3         ; Compare: A - max
+    JC NEXT            ; If carry (A < max), skip update
+    MOV A, @R0         ; Load the larger value back to A
 NEXT:
-    INC R0             ; Next element
+    INC R0             ; Move to next element
     DJNZ R2, FIND_MAX  ; Continue loop
     
     MOV R7, A          ; Store maximum in R7
