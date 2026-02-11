@@ -22,7 +22,7 @@ class Simulator8051App extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           return MaterialApp(
-            title: '8051 Simulator',
+            title: 'simulator8051',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
             theme: _buildLightTheme(),

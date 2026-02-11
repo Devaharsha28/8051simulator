@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="simulator_8051"
+        android:label="simulator8051"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

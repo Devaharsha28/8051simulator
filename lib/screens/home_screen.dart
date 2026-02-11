@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('8051 Simulator'),
+            const Text('simulator8051'),
             Text(
               'Assembly Editor',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -112,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '8051 Simulator',
+                  'simulator8051',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     color: theme.colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
@@ -393,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('8051 Simulator'),
+        title: const Text('simulator8051'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
