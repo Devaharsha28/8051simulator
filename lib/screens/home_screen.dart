@@ -7,6 +7,7 @@ import '../widgets/disassembly_view.dart';
 import '../widgets/registers_view.dart';
 import '../widgets/memory_view.dart';
 import 'editor_screen.dart';
+import 'example_programs_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           controller: _tabController,
           tabs: const [
             Tab(icon: Icon(Icons.edit_note), text: 'Editor'),
-            Tab(icon: Icon(Icons.code), text: 'Code'),
+            Tab(icon: Icon(Icons.code), text: 'Disassembly'),
             Tab(icon: Icon(Icons.memory), text: 'Registers'),
             Tab(icon: Icon(Icons.storage), text: 'Memory'),
           ],
@@ -170,33 +171,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 const Divider(height: 1),
                 
                 // Example Programs
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(
-                    'EXAMPLE PROGRAMS',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.folder_special),
+                  title: const Text('Example Programs'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final result = await Navigator.push<ExampleProgram>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ExampleProgramsScreen(),
+                      ),
+                    );
+                    if (result != null && mounted) {
+                      _loadExampleProgram(context, result);
+                    }
+                  },
                 ),
-                
-                ...ExamplePrograms.getAll().map((program) {
-                  return ListTile(
-                    leading: const Icon(Icons.code),
-                    title: Text(program.name),
-                    subtitle: Text(
-                      program.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _loadExampleProgram(context, program);
-                    },
-                  );
-                }),
                 
                 const Divider(height: 1),
                 

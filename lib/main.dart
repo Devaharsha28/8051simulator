@@ -35,16 +35,16 @@ class Simulator8051App extends StatelessWidget {
   }
 
   ThemeData _buildLightTheme() {
-    const primary = Color(0xFF007AFF); // Apple Blue
-    const background = Color(0xFFF2F2F7); // Apple Light Gray
-    const surface = Color(0xFFFFFFFF);
-    const surfaceVariant = Color(0xFFF9F9F9);
+    const primary = Color(0xFF000000); // Pure Black
+    const background = Color(0xFFFFFFFF); // Pure White
+    const surface = Color(0xFFFAFAFA);
+    const surfaceVariant = Color(0xFFF5F5F5);
     
     final colorScheme = ColorScheme.light(
       primary: primary,
-      secondary: const Color(0xFF34C759), // Apple Green
-      tertiary: const Color(0xFFFF9500), // Apple Orange
-      error: const Color(0xFFFF3B30), // Apple Red
+      secondary: const Color(0xFF666666), // Dark Gray
+      tertiary: const Color(0xFF999999), // Medium Gray
+      error: const Color(0xFF000000), // Black for errors
       background: background,
       surface: surface,
       surfaceVariant: surfaceVariant,
@@ -333,21 +333,21 @@ class Simulator8051App extends StatelessWidget {
   }
 
   ThemeData _buildDarkTheme() {
-    const primary = Color(0xFF0A84FF); // Apple Blue (Dark)
-    const background = Color(0xFF000000); // True black
-    const surface = Color(0xFF1C1C1E); // Apple Dark Gray
-    const surfaceVariant = Color(0xFF2C2C2E);
+    const primary = Color(0xFFFFFFFF); // Pure White
+    const background = Color(0xFF000000); // Pure Black
+    const surface = Color(0xFF0A0A0A); // Almost Black
+    const surfaceVariant = Color(0xFF1A1A1A);
     
     final colorScheme = ColorScheme.dark(
       primary: primary,
-      secondary: const Color(0xFF32D74B), // Apple Green (Dark)
-      tertiary: const Color(0xFFFF9F0A), // Apple Orange (Dark)
-      error: const Color(0xFFFF453A), // Apple Red (Dark)
+      secondary: const Color(0xFF999999), // Medium Gray
+      tertiary: const Color(0xFF666666), // Dark Gray
+      error: const Color(0xFFFFFFFF), // White for errors in dark mode
       background: background,
       surface: surface,
       surfaceVariant: surfaceVariant,
-      onPrimary: Colors.white,
-      onSecondary: Colors.white,
+      onPrimary: const Color(0xFF000000),
+      onSecondary: const Color(0xFF000000),
       onBackground: const Color(0xFFFFFFFF),
       onSurface: const Color(0xFFFFFFFF),
     );
@@ -444,7 +444,7 @@ class Simulator8051App extends StatelessWidget {
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: const Color(0xFF0A0A0A),
         foregroundColor: const Color(0xFFFFFFFF),
         scrolledUnderElevation: 0.5,
         shadowColor: Colors.black.withOpacity(0.3),

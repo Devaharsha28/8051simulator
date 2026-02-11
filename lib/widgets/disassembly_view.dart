@@ -110,9 +110,19 @@ class _DisassemblyViewState extends State<DisassemblyView> {
         // Toolbar - compact and IDE-like
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          color: theme.brightness == Brightness.dark
-              ? const Color(0xFF2D2D30)
-              : const Color(0xFFF3F3F3),
+          decoration: BoxDecoration(
+            color: theme.brightness == Brightness.dark
+                ? const Color(0xFF0A0A0A)
+                : const Color(0xFFF3F3F3),
+            border: Border(
+              bottom: BorderSide(
+                color: theme.brightness == Brightness.dark
+                    ? const Color(0xFF333333)
+                    : const Color(0xFFE0E0E0),
+                width: 1,
+              ),
+            ),
+          ),
           child: Row(
             children: [
               // Run/Pause button - primary action
@@ -125,9 +135,11 @@ class _DisassemblyViewState extends State<DisassemblyView> {
                 tooltip: simulator.isRunning ? 'Pause' : 'Run',
                 style: IconButton.styleFrom(
                   backgroundColor: simulator.isRunning 
-                      ? theme.colorScheme.error 
-                      : Colors.green,
-                  foregroundColor: Colors.white,
+                      ? const Color(0xFF666666)
+                      : (theme.brightness == Brightness.dark ? Colors.white : Colors.black),
+                  foregroundColor: simulator.isRunning
+                      ? Colors.white
+                      : (theme.brightness == Brightness.dark ? Colors.black : Colors.white),
                 ),
               ),
               const SizedBox(width: 4),

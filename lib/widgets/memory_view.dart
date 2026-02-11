@@ -397,7 +397,7 @@ class _ExternalRamViewState extends State<_ExternalRamView> {
       children: [
         // Header with page selector
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
             border: Border(
@@ -407,61 +407,81 @@ class _ExternalRamViewState extends State<_ExternalRamView> {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Icon(
-                Icons.cloud_circle,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'External RAM (64KB) - Click to edit',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: _currentPage > 0 ? () {
-                  setState(() {
-                    _currentPage--;
-                    _pageController.text = _currentPage.toString();
-                  });
-                } : null,
-              ),
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: _pageController,
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    border: OutlineInputBorder(),
-                    labelText: 'Page',
+              Row(
+                children: [
+                  Icon(
+                    Icons.cloud_circle,
+                    size: 18,
+                    color: theme.colorScheme.primary,
                   ),
-                  onSubmitted: (value) {
-                    final page = int.tryParse(value) ?? 0;
-                    setState(() {
-                      _currentPage = page.clamp(0, 255);
-                      _pageController.text = _currentPage.toString();
-                    });
-                  },
-                ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'External RAM (64KB)',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-              Text(' / 255', style: theme.textTheme.bodySmall),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: _currentPage < 255 ? () {
-                  setState(() {
-                    _currentPage++;
-                    _pageController.text = _currentPage.toString();
-                  });
-                } : null,
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    iconSize: 20,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                    onPressed: _currentPage > 0 ? () {
+                      setState(() {
+                        _currentPage--;
+                        _pageController.text = _currentPage.toString();
+                      });
+                    } : null,
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 60,
+                    child: TextField(
+                      controller: _pageController,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: theme.textTheme.bodySmall,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (value) {
+                        final page = int.tryParse(value) ?? 0;
+                        setState(() {
+                          _currentPage = page.clamp(0, 255);
+                          _pageController.text = _currentPage.toString();
+                        });
+                      },
+                    ),
+                  ),
+                  Text(' / 255', style: theme.textTheme.bodySmall),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    iconSize: 20,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                    onPressed: _currentPage < 255 ? () {
+                      setState(() {
+                        _currentPage++;
+                        _pageController.text = _currentPage.toString();
+                      });
+                    } : null,
+                  ),
+                ],
               ),
             ],
           ),
@@ -470,7 +490,7 @@ class _ExternalRamViewState extends State<_ExternalRamView> {
         // Memory Grid for current page
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

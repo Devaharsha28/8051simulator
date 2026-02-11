@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/simulator_provider.dart';
 
 class EditorScreen extends StatefulWidget {
@@ -9,17 +10,29 @@ class EditorScreen extends StatefulWidget {
   State<EditorScreen> createState() => EditorScreenState();
 }
 
-class EditorScreenState extends State<EditorScreen> {
+class EditorScreenState extends State<EditorScreen> with AutomaticKeepAliveClientMixin {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _lineNumberScrollController = ScrollController();
   String? _errorMessage;
   bool _isAssembling = false;
   bool _hasUnsavedChanges = false;
+  bool _hasLoadedInitialCode = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    // Load default example code
-    _controller.text = _getDefaultCode();
+    // Load default example code only once
+    if (!_hasLoadedInitialCode && _controller.text.isEmpty) {
+      _controller.text = _getDefaultCode();
+      _hasLoadedInitialCode = true;
+      // Auto-assemble the default code
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _assembleAndLoad();
+      });
+    }
     _controller.addListener(() {
       if (!_hasUnsavedChanges) {
         setState(() {
@@ -27,15 +40,12 @@ class EditorScreenState extends State<EditorScreen> {
         });
       }
     });
-    // Auto-assemble the default code
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _assembleAndLoad();
-    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _lineNumberScrollController.dispose();
     super.dispose();
   }
 
@@ -140,6 +150,7 @@ END
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final theme = Theme.of(context);
     final simulator = context.watch<SimulatorProvider>();
     
@@ -148,11 +159,23 @@ END
         // Toolbar - compact and IDE-like
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          color: theme.brightness == Brightness.dark
-              ? const Color(0xFF2D2D30)
-              : const Color(0xFFF3F3F3),
-          child: Row(
-            children: [
+          decoration: BoxDecoration(
+            color: theme.brightness == Brightness.dark
+                ? const Color(0xFF0A0A0A)
+                : const Color(0xFFF3F3F3),
+            border: Border(
+              bottom: BorderSide(
+                color: theme.brightness == Brightness.dark
+                    ? const Color(0xFF333333)
+                    : const Color(0xFFE0E0E0),
+                width: 1,
+              ),
+            ),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
               // Run/Pause button - primary action
               IconButton.filled(
                 onPressed: _isAssembling ? null : _runProgram,
@@ -174,9 +197,11 @@ END
                     : (simulator.isRunning ? 'Pause' : 'Run'),
                 style: IconButton.styleFrom(
                   backgroundColor: simulator.isRunning 
-                      ? theme.colorScheme.error 
-                      : Colors.green,
-                  foregroundColor: Colors.white,
+                      ? const Color(0xFF666666)
+                      : (theme.brightness == Brightness.dark ? Colors.white : Colors.black),
+                  foregroundColor: simulator.isRunning
+                      ? Colors.white
+                      : (theme.brightness == Brightness.dark ? Colors.black : Colors.white),
                 ),
               ),
               const SizedBox(width: 4),
@@ -229,7 +254,6 @@ END
                 ),
                 const SizedBox(width: 8),
               ],
-              const Spacer(),
               // Status indicator
               if (simulator.isProgramLoaded)
                 Chip(
@@ -258,6 +282,7 @@ END
                 tooltip: 'Load Example',
               ),
             ],
+            ),
           ),
         ),
         
@@ -296,34 +321,94 @@ END
             ),
           ),
         
-        // Code editor
+        // Code editor with line numbers
         Expanded(
           child: Container(
             color: theme.brightness == Brightness.dark
-                ? const Color(0xFF1E1E1E)
+                ? const Color(0xFF000000)
                 : const Color(0xFFFAFAFA),
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _controller,
-              maxLines: null,
-              expands: true,
-              style: TextStyle(
-                fontFamily: 'Courier New',
-                fontSize: 14,
-                color: theme.brightness == Brightness.dark
-                    ? const Color(0xFFD4D4D4)
-                    : const Color(0xFF000000),
-                height: 1.5,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: '; Write your 8051 assembly code here...\n; Supported: All 111 standard 8051 instructions\n; Example: MOV, ADD, SUBB, INC, DEC, ANL, ORL, XRL\n;          SJMP, LJMP, ACALL, LCALL, RET, DJNZ, CJNE, etc.',
-                hintStyle: TextStyle(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Line numbers column
+                Container(
+                  width: 50,
                   color: theme.brightness == Brightness.dark
-                      ? Colors.grey[700]
-                      : Colors.grey[400],
+                      ? const Color(0xFF0A0A0A)
+                      : const Color(0xFFEEEEEE),
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _controller,
+                    builder: (context, value, _) {
+                      final lineCount = '\n'.allMatches(value.text).length + 1;
+                      return ListView.builder(
+                        controller: _lineNumberScrollController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(top: 16, right: 8, left: 4),
+                        itemCount: lineCount,
+                        itemBuilder: (context, index) {
+                          return SizedBox(
+                            height: 21,
+                            child: Text(
+                              '${index + 1}',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.robotoMono(
+                                fontSize: 12,
+                                height: 1.5,
+                                color: theme.brightness == Brightness.dark
+                                    ? const Color(0xFF666666)
+                                    : const Color(0xFF999999),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
+                // Code editor
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: 2000, // Large width to prevent wrapping
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification is ScrollUpdateNotification) {
+                            _lineNumberScrollController.jumpTo(
+                              _lineNumberScrollController.position.pixels +
+                                  notification.scrollDelta!,
+                            );
+                          }
+                          return true;
+                        },
+                        child: TextField(
+                          controller: _controller,
+                          maxLines: null,
+                          expands: true,
+                          textAlignVertical: TextAlignVertical.top,
+                          style: GoogleFonts.robotoMono(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: theme.brightness == Brightness.dark
+                                ? const Color(0xFFFFFFFF)
+                                : const Color(0xFF000000),
+                          ),
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.all(16),
+                            border: InputBorder.none,
+                            hintText: '; Write your 8051 assembly code here...\n; Supported: All 111 standard 8051 instructions\n; Example: MOV, ADD, SUBB, INC, DEC, ANL, ORL, XRL\n;          SJMP, LJMP, ACALL, LCALL, RET, DJNZ, CJNE, etc.',
+                            hintStyle: GoogleFonts.robotoMono(
+                              color: theme.brightness == Brightness.dark
+                                  ? Colors.grey[700]
+                                  : Colors.grey[400],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
