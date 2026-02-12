@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/simulator_provider.dart';
+import '../utils/assembly_syntax_highlighter.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
@@ -11,8 +12,8 @@ class EditorScreen extends StatefulWidget {
 }
 
 class EditorScreenState extends State<EditorScreen> with AutomaticKeepAliveClientMixin {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _lineNumberScrollController = ScrollController();
+  late AssemblySyntaxHighlightingController _controller;
+  bool _hasInitializedController = false;
   String? _errorMessage;
   bool _isAssembling = false;
   bool _hasUnsavedChanges = false;
@@ -24,29 +25,69 @@ class EditorScreenState extends State<EditorScreen> with AutomaticKeepAliveClien
   @override
   void initState() {
     super.initState();
-    // Load default example code only once
-    if (!_hasLoadedInitialCode && _controller.text.isEmpty) {
-      _controller.text = _getDefaultCode();
-      _hasLoadedInitialCode = true;
-      // Auto-assemble the default code
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _assembleAndLoad();
-      });
-    }
-    _controller.addListener(() {
-      if (!_hasUnsavedChanges) {
-        setState(() {
-          _hasUnsavedChanges = true;
+    // Controller initialization moved to didChangeDependencies
+    // to access theme context
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasInitializedController) {
+      final theme = Theme.of(context);
+      _controller = AssemblySyntaxHighlightingController(
+        brightness: theme.brightness,
+        text: '',
+      );
+
+      // Load default example code only once
+      if (!_hasLoadedInitialCode && _controller.text.isEmpty) {
+        _controller.text = _getDefaultCode();
+        _hasLoadedInitialCode = true;
+        // Auto-assemble the default code
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _assembleAndLoad();
         });
       }
-    });
+
+      _controller.addListener(_controllerListener);
+      _hasInitializedController = true;
+    }
+  }
+
+  void _controllerListener() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_controllerListener);
     _controller.dispose();
-    _lineNumberScrollController.dispose();
     super.dispose();
+  }
+
+  void _updateControllerTheme() {
+    final theme = Theme.of(context);
+    if (_controller.brightness != theme.brightness) {
+      final currentText = _controller.text;
+      final currentSelection = _controller.selection;
+
+      _controller.removeListener(_controllerListener);
+      final oldController = _controller;
+
+      _controller = AssemblySyntaxHighlightingController(
+        brightness: theme.brightness,
+        text: currentText,
+      );
+      _controller.selection = currentSelection;
+      _controller.addListener(_controllerListener);
+
+      oldController.dispose();
+      setState(() {});
+    }
   }
 
   /// Load code from external source (e.g., example programs)
@@ -151,6 +192,7 @@ END
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    _updateControllerTheme(); // Update syntax highlighting colors when theme changes
     final theme = Theme.of(context);
     final simulator = context.watch<SimulatorProvider>();
     
@@ -264,7 +306,12 @@ END
                   ),
                   label: Text(
                     'PC: 0x${simulator.cpu.pc.toRadixString(16).toUpperCase().padLeft(4, '0')}',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
+                    ),
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -321,94 +368,40 @@ END
             ),
           ),
         
-        // Code editor with line numbers
+        // Code editor
         Expanded(
           child: Container(
             color: theme.brightness == Brightness.dark
                 ? const Color(0xFF000000)
                 : const Color(0xFFFAFAFA),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Line numbers column
-                Container(
-                  width: 50,
-                  color: theme.brightness == Brightness.dark
-                      ? const Color(0xFF0A0A0A)
-                      : const Color(0xFFEEEEEE),
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _controller,
-                    builder: (context, value, _) {
-                      final lineCount = '\n'.allMatches(value.text).length + 1;
-                      return ListView.builder(
-                        controller: _lineNumberScrollController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 16, right: 8, left: 4),
-                        itemCount: lineCount,
-                        itemBuilder: (context, index) {
-                          return SizedBox(
-                            height: 21,
-                            child: Text(
-                              '${index + 1}',
-                              textAlign: TextAlign.right,
-                              style: GoogleFonts.robotoMono(
-                                fontSize: 12,
-                                height: 1.5,
-                                color: theme.brightness == Brightness.dark
-                                    ? const Color(0xFF666666)
-                                    : const Color(0xFF999999),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: 2000, // Large width to prevent wrapping
+                child: TextField(
+                  controller: _controller,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: GoogleFonts.robotoMono(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: theme.brightness == Brightness.dark
+                        ? const Color(0xFFFFFFFF)
+                        : const Color(0xFF000000),
                   ),
-                ),
-                // Code editor
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: 2000, // Large width to prevent wrapping
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (notification) {
-                          if (notification is ScrollUpdateNotification) {
-                            _lineNumberScrollController.jumpTo(
-                              _lineNumberScrollController.position.pixels +
-                                  notification.scrollDelta!,
-                            );
-                          }
-                          return true;
-                        },
-                        child: TextField(
-                          controller: _controller,
-                          maxLines: null,
-                          expands: true,
-                          textAlignVertical: TextAlignVertical.top,
-                          style: GoogleFonts.robotoMono(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: theme.brightness == Brightness.dark
-                                ? const Color(0xFFFFFFFF)
-                                : const Color(0xFF000000),
-                          ),
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.all(16),
-                            border: InputBorder.none,
-                            hintText: '; Write your 8051 assembly code here...\n; Supported: All 111 standard 8051 instructions\n; Example: MOV, ADD, SUBB, INC, DEC, ANL, ORL, XRL\n;          SJMP, LJMP, ACALL, LCALL, RET, DJNZ, CJNE, etc.',
-                            hintStyle: GoogleFonts.robotoMono(
-                              color: theme.brightness == Brightness.dark
-                                  ? Colors.grey[700]
-                                  : Colors.grey[400],
-                            ),
-                          ),
-                        ),
-                      ),
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.all(16),
+                    border: InputBorder.none,
+                    hintText: '; Write your 8051 assembly code here...\n; Supported: All 111 standard 8051 instructions\n; Example: MOV, ADD, SUBB, INC, DEC, ANL, ORL, XRL\n;          SJMP, LJMP, ACALL, LCALL, RET, DJNZ, CJNE, etc.',
+                    hintStyle: GoogleFonts.robotoMono(
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.grey[700]
+                          : Colors.grey[400],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

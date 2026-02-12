@@ -69,28 +69,28 @@ class RegistersView extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(child: _buildRegisterRow(context, 'R0', registers['R0'])),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Expanded(child: _buildRegisterRow(context, 'R1', registers['R1'])),
                   ],
                 ),
                 Row(
                   children: [
                     Expanded(child: _buildRegisterRow(context, 'R2', registers['R2'])),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Expanded(child: _buildRegisterRow(context, 'R3', registers['R3'])),
                   ],
                 ),
                 Row(
                   children: [
                     Expanded(child: _buildRegisterRow(context, 'R4', registers['R4'])),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Expanded(child: _buildRegisterRow(context, 'R5', registers['R5'])),
                   ],
                 ),
                 Row(
                   children: [
                     Expanded(child: _buildRegisterRow(context, 'R6', registers['R6'])),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Expanded(child: _buildRegisterRow(context, 'R7', registers['R7'])),
                   ],
                 ),
@@ -144,7 +144,7 @@ class RegistersView extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 80,
+            width: 50,
             child: Text(
               name,
               style: GoogleFonts.jetBrainsMono(
@@ -156,7 +156,7 @@ class RegistersView extends StatelessWidget {
           ),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),

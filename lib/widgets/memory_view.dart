@@ -92,7 +92,7 @@ class _InternalRamView extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Internal RAM (256 bytes) - Click to edit',
+                'Internal RAM (256 bytes)',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
