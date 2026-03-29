@@ -144,6 +144,43 @@ class Assembler8051 {
     'PCON': 0x87,
   };
 
+  // Common bit-addressable symbols used in labs
+  static const Map<String, int> bitAddresses = {
+    // TCON bits
+    'IT0': 0x88,
+    'IE0': 0x89,
+    'IT1': 0x8A,
+    'IE1': 0x8B,
+    'TR0': 0x8C,
+    'TF0': 0x8D,
+    'TR1': 0x8E,
+    'TF1': 0x8F,
+    // SCON bits
+    'RI': 0x98,
+    'TI': 0x99,
+    'RB8': 0x9A,
+    'TB8': 0x9B,
+    'REN': 0x9C,
+    'SM2': 0x9D,
+    'SM1': 0x9E,
+    'SM0': 0x9F,
+    // IE bits
+    'EX0': 0xA8,
+    'ET0': 0xA9,
+    'EX1': 0xAA,
+    'ET1': 0xAB,
+    'ES': 0xAC,
+    'EA': 0xAF,
+    // PSW bits
+    'P': 0xD0,
+    'OV': 0xD2,
+    'RS0': 0xD3,
+    'RS1': 0xD4,
+    'F0': 0xD5,
+    'AC': 0xD6,
+    'CY': 0xD7,
+  };
+
   AssembleResult assemble(String sourceCode) {
     labels.clear();
     assembledCode.clear();
@@ -238,6 +275,9 @@ class Assembler8051 {
 
   int _getInstructionSize(String instruction) {
     final normalized = _normalizeInstruction(instruction);
+    final parts = normalized.split(RegExp(r'[\s,]+'));
+    if (parts.isEmpty) return 0;
+    final mnemonic = parts[0];
     
     // Check instruction pattern
     if (normalized.startsWith('LJMP') || normalized.startsWith('LCALL')) {
@@ -251,18 +291,64 @@ class Assembler8051 {
     } else if (normalized.startsWith('JB') || normalized.startsWith('JNB') ||
                normalized.startsWith('JBC') || normalized.startsWith('CJNE')) {
       return 3;
-    } else if (normalized.startsWith('MOV') && normalized.contains('DPTR')) {
-      return 3;
-    } else if (normalized.startsWith('MOV') && normalized.contains(',')) {
-      final parts = normalized.split(',');
-      if (parts.length == 2) {
-        if (parts[1].contains('#') || parts[0].toUpperCase() == 'DIRECT') {
-          return 2;
-        } else if (parts[0].contains('DIRECT') && parts[1].contains('DIRECT')) {
-          return 3;
-        }
+    } else if (normalized.startsWith('PUSH') || normalized.startsWith('POP')) {
+      return 2;
+    } else if (normalized.startsWith('XCH ')) {
+      return normalized.contains(',@R') || RegExp(r',\s*R[0-7]$').hasMatch(normalized) ? 1 : 2;
+    } else if (normalized.startsWith('XCHD')) {
+      return 1;
+    } else if (normalized.startsWith('ANL ') || normalized.startsWith('ORL ') || normalized.startsWith('XRL ')) {
+      if (parts.length < 3) return 1;
+      final dest = parts[1];
+      final src = parts[2];
+      if (dest == 'A') {
+        return src.startsWith('#') || !_isRegister(src) && !src.startsWith('@') ? 2 : 1;
+      }
+      if (dest == 'C') {
+        return 2;
+      }
+      if (src.startsWith('#')) {
+        return 3;
       }
       return 2;
+    } else if (mnemonic == 'MOV') {
+      if (parts.length < 3) return 1;
+      final dest = parts[1];
+      final src = parts[2];
+
+      // MOV DPTR, #data16
+      if (dest == 'DPTR' && src.startsWith('#')) {
+        return 3;
+      }
+
+      // MOV bit, C and MOV C, bit
+      if ((dest == 'C' && src != 'C') || (src == 'C' && dest != 'C')) {
+        return 2;
+      }
+
+      // MOV direct, #data and MOV direct, direct
+      final destIsDirect = !_isRegister(dest) && dest != 'A' && dest != 'DPTR' && !dest.startsWith('@');
+      final srcIsDirect = !_isRegister(src) && src != 'A' && src != 'C' && !src.startsWith('#') && !src.startsWith('@');
+      if (destIsDirect && src.startsWith('#')) {
+        return 3;
+      }
+      if (destIsDirect && srcIsDirect) {
+        return 3;
+      }
+
+      // Remaining MOV forms are 1 or 2 bytes.
+      if (dest == 'A' && (_isRegister(src) || src.startsWith('@'))) {
+        return 1;
+      }
+      if (_isRegister(dest) && src == 'A') {
+        return 1;
+      }
+      if (dest.startsWith('@') && src == 'A') {
+        return 1;
+      }
+      return 2;
+    } else if (mnemonic == 'MOVX' || mnemonic == 'MOVC' || normalized == 'JMP @A+DPTR') {
+      return 1;
     }
     
     return 1; // Default single-byte instruction
@@ -282,6 +368,21 @@ class Assembler8051 {
     // Handle different instruction types
     if (mnemonic == 'NOP' || mnemonic == 'RET' || mnemonic == 'RETI') {
       bytes.add(opcodes[mnemonic]!);
+    } else if (mnemonic == 'RL' || mnemonic == 'RLC' || mnemonic == 'RR' ||
+               mnemonic == 'RRC' || mnemonic == 'SWAP' || mnemonic == 'DA') {
+      final key = parts.length > 1 ? '$mnemonic ${parts[1]}' : '$mnemonic A';
+      if (!opcodes.containsKey(key)) {
+        throw Exception('Invalid operand for $mnemonic');
+      }
+      bytes.add(opcodes[key]!);
+    } else if (mnemonic == 'CPL') {
+      bytes.addAll(_assembleCpl(parts));
+    } else if (mnemonic == 'PUSH' || mnemonic == 'POP') {
+      if (parts.length < 2) throw Exception('$mnemonic requires direct address');
+      bytes.add(opcodes['$mnemonic direct']!);
+      bytes.add(_getDirectAddress(parts[1]));
+    } else if (mnemonic == 'XCH' || mnemonic == 'XCHD') {
+      bytes.addAll(_assembleXch(parts));
     } else if (mnemonic == 'MUL' || mnemonic == 'DIV') {
       // MUL AB and DIV AB - two part instructions
       if (parts.length < 2 || parts[1] != 'AB') {
@@ -290,11 +391,19 @@ class Assembler8051 {
       bytes.add(opcodes['$mnemonic AB']!);
     } else if (mnemonic == 'MOV') {
       bytes.addAll(_assembleMov(parts));
+    } else if (mnemonic == 'MOVX') {
+      bytes.addAll(_assembleMovx(parts));
+    } else if (mnemonic == 'MOVC') {
+      bytes.addAll(_assembleMovc(parts));
+    } else if (mnemonic == 'JMP' && parts.length > 1 && parts[1] == '@A+DPTR') {
+      bytes.add(0x73);
     } else if (mnemonic == 'LJMP' || mnemonic == 'LCALL') {
       bytes.addAll(_assembleAbsoluteJump(mnemonic, parts[1]));
     } else if (mnemonic == 'SJMP' || mnemonic == 'JZ' || mnemonic == 'JNZ' ||
                mnemonic == 'JC' || mnemonic == 'JNC') {
       bytes.addAll(_assembleRelativeJump(mnemonic, parts[1], address));
+    } else if (mnemonic == 'JB' || mnemonic == 'JNB' || mnemonic == 'JBC') {
+      bytes.addAll(_assembleBitJump(mnemonic, parts, address));
     } else if (mnemonic == 'DJNZ') {
       bytes.addAll(_assembleDjnz(parts, address));
     } else if (mnemonic == 'ACALL') {
@@ -303,8 +412,9 @@ class Assembler8051 {
       bytes.addAll(_assembleBitOp(mnemonic, parts.length > 1 ? parts[1] : ''));
     } else if (mnemonic == 'INC' || mnemonic == 'DEC') {
       bytes.addAll(_assembleIncDec(mnemonic, parts[1]));
-    } else if (mnemonic == 'ADD' || mnemonic == 'ADDC' || mnemonic == 'SUBB' ||
-               mnemonic == 'ANL' || mnemonic == 'ORL' || mnemonic == 'XRL') {
+    } else if (mnemonic == 'ANL' || mnemonic == 'ORL' || mnemonic == 'XRL') {
+      bytes.addAll(_assembleLogic(mnemonic, parts));
+    } else if (mnemonic == 'ADD' || mnemonic == 'ADDC' || mnemonic == 'SUBB') {
       bytes.addAll(_assembleArithLogic(mnemonic, parts));
     } else if (mnemonic == 'CJNE') {
       bytes.addAll(_assembleCjne(parts, address));
@@ -324,6 +434,14 @@ class Assembler8051 {
     
     final dest = parts[1];
     final src = parts[2];
+
+    if (dest == 'C') {
+      return [0xA2, _getBitAddress(src)];
+    }
+
+    if (src == 'C') {
+      return [0x92, _getBitAddress(dest)];
+    }
 
     if (dest == 'A') {
       if (src.startsWith('#')) {
@@ -349,6 +467,15 @@ class Assembler8051 {
         final value = _parseNumber(src.substring(1));
         return [0x90, (value >> 8) & 0xFF, value & 0xFF];
       }
+    } else if (dest.startsWith('@')) {
+      final ri = _getIndirectRegister(dest);
+      if (src == 'A') {
+        return [0xF6 + ri];
+      } else if (src.startsWith('#')) {
+        return [0x76 + ri, _parseNumber(src.substring(1))];
+      } else {
+        return [0xA6 + ri, _getDirectAddress(src)];
+      }
     } else {
       // Direct addressing
       final destAddr = _getDirectAddress(dest);
@@ -358,12 +485,87 @@ class Assembler8051 {
         return [0x75, destAddr, _parseNumber(src.substring(1))];
       } else if (_isRegister(src)) {
         return [0x88 + _getRegisterNumber(src), destAddr];
+      } else if (src.startsWith('@')) {
+        return [0x86 + _getIndirectRegister(src), destAddr];
       } else {
         return [0x85, _getDirectAddress(src), destAddr];
       }
     }
 
     throw Exception('Invalid MOV instruction');
+  }
+
+  List<int> _assembleCpl(List<String> parts) {
+    if (parts.length < 2 || parts[1] == 'A') {
+      return [0xF4];
+    }
+    if (parts[1] == 'C') {
+      return [0xB3];
+    }
+    return [0xB2, _getBitAddress(parts[1])];
+  }
+
+  List<int> _assembleXch(List<String> parts) {
+    if (parts.length < 3) throw Exception('XCH/XCHD requires two operands');
+
+    final mnemonic = parts[0];
+    final dest = parts[1];
+    final src = parts[2];
+
+    if (dest != 'A') {
+      throw Exception('$mnemonic destination must be A');
+    }
+
+    if (mnemonic == 'XCHD') {
+      if (src == '@R0') return [0xD6];
+      if (src == '@R1') return [0xD7];
+      throw Exception('XCHD supports only @R0 or @R1');
+    }
+
+    if (_isRegister(src)) {
+      return [0xC8 + _getRegisterNumber(src)];
+    }
+    if (src == '@R0') return [0xC6];
+    if (src == '@R1') return [0xC7];
+    return [0xC5, _getDirectAddress(src)];
+  }
+
+  List<int> _assembleMovx(List<String> parts) {
+    if (parts.length < 3) throw Exception('MOVX requires two operands');
+
+    final dest = parts[1];
+    final src = parts[2];
+
+    if (dest == 'A') {
+      if (src == '@DPTR') return [0xE0];
+      if (src == '@R0') return [0xE2];
+      if (src == '@R1') return [0xE3];
+      throw Exception('Invalid MOVX source for A: $src');
+    }
+
+    if (src == 'A') {
+      if (dest == '@DPTR') return [0xF0];
+      if (dest == '@R0') return [0xF2];
+      if (dest == '@R1') return [0xF3];
+      throw Exception('Invalid MOVX destination with A source: $dest');
+    }
+
+    throw Exception('Invalid MOVX operands: $dest, $src');
+  }
+
+  List<int> _assembleMovc(List<String> parts) {
+    if (parts.length < 3) throw Exception('MOVC requires two operands');
+
+    final dest = parts[1];
+    final src = parts[2];
+
+    if (dest != 'A') {
+      throw Exception('MOVC destination must be A');
+    }
+
+    if (src == '@A+DPTR') return [0x93];
+    if (src == '@A+PC') return [0x83];
+    throw Exception('Invalid MOVC source: $src');
   }
 
   List<int> _assembleAbsoluteJump(String mnemonic, String target) {
@@ -381,10 +583,15 @@ class Assembler8051 {
     }
     
     int opcode = 0x80; // SJMP default
-    if (mnemonic == 'JZ') opcode = 0x60;
-    else if (mnemonic == 'JNZ') opcode = 0x70;
-    else if (mnemonic == 'JC') opcode = 0x40;
-    else if (mnemonic == 'JNC') opcode = 0x50;
+    if (mnemonic == 'JZ') {
+      opcode = 0x60;
+    } else if (mnemonic == 'JNZ') {
+      opcode = 0x70;
+    } else if (mnemonic == 'JC') {
+      opcode = 0x40;
+    } else if (mnemonic == 'JNC') {
+      opcode = 0x50;
+    }
     
     return [opcode, offset & 0xFF];
   }
@@ -402,6 +609,28 @@ class Assembler8051 {
     } else {
       return [0xD5, _getDirectAddress(reg), offset & 0xFF];
     }
+  }
+
+  List<int> _assembleBitJump(String mnemonic, List<String> parts, int currentAddr) {
+    if (parts.length < 3) {
+      throw Exception('$mnemonic requires bit and relative target operands');
+    }
+
+    final bitAddr = _getBitAddress(parts[1]);
+    final targetAddr = _resolveLabel(parts[2]);
+    final offset = targetAddr - (currentAddr + 3);
+    if (offset < -128 || offset > 127) {
+      throw Exception('Jump target out of range for $mnemonic');
+    }
+
+    int opcode = 0x20;
+    if (mnemonic == 'JNB') {
+      opcode = 0x30;
+    } else if (mnemonic == 'JBC') {
+      opcode = 0x10;
+    }
+
+    return [opcode, bitAddr, offset & 0xFF];
   }
 
   List<int> _assembleAcall(String target, int currentAddr) {
@@ -473,6 +702,43 @@ class Assembler8051 {
     }
   }
 
+  List<int> _assembleLogic(String mnemonic, List<String> parts) {
+    if (parts.length < 3) throw Exception('$mnemonic requires two operands');
+
+    final dest = parts[1];
+    final src = parts[2];
+
+    if (dest == 'A') {
+      return _assembleArithLogic(mnemonic, parts);
+    }
+
+    if (dest == 'C') {
+      if (mnemonic == 'XRL') {
+        throw Exception('XRL C,... form is not supported on 8051');
+      }
+      if (src.startsWith('/')) {
+        final bitAddr = _getBitAddress(src.substring(1));
+        return [mnemonic == 'ANL' ? 0xB0 : 0xA0, bitAddr];
+      }
+      return [mnemonic == 'ANL' ? 0x82 : 0x72, _getBitAddress(src)];
+    }
+
+    final direct = _getDirectAddress(dest);
+    if (src == 'A') {
+      if (mnemonic == 'ANL') return [0x52, direct];
+      if (mnemonic == 'ORL') return [0x42, direct];
+      if (mnemonic == 'XRL') return [0x62, direct];
+    }
+    if (src.startsWith('#')) {
+      final imm = _parseNumber(src.substring(1));
+      if (mnemonic == 'ANL') return [0x53, direct, imm];
+      if (mnemonic == 'ORL') return [0x43, direct, imm];
+      if (mnemonic == 'XRL') return [0x63, direct, imm];
+    }
+
+    throw Exception('Invalid $mnemonic instruction form: $dest, $src');
+  }
+
   List<int> _assembleCjne(List<String> parts, int currentAddr) {
     if (parts.length < 4) throw Exception('CJNE requires three operands');
     
@@ -524,6 +790,12 @@ class Assembler8051 {
   }
 
   int _getBitAddress(String operand) {
+    final token = operand.toUpperCase();
+
+    if (bitAddresses.containsKey(token)) {
+      return bitAddresses[token]!;
+    }
+
     // Handle port bit notation (e.g., P1.0)
     if (operand.contains('.')) {
       final parts = operand.split('.');
@@ -550,19 +822,19 @@ class Assembler8051 {
 
   int _parseNumber(String value) {
     value = value.toUpperCase().trim();
+
+    // Hex: 0x... or ...H
+    if (value.startsWith('0X')) {
+      return int.parse(value.substring(2), radix: 16);
+    } else if (value.endsWith('H')) {
+      return int.parse(value.substring(0, value.length - 1), radix: 16);
+    }
     
     // Binary: 0b... or ...B
     if (value.startsWith('0B')) {
       return int.parse(value.substring(2), radix: 2);
     } else if (value.endsWith('B') && value.length > 1) {
       return int.parse(value.substring(0, value.length - 1), radix: 2);
-    }
-    
-    // Hex: 0x... or ...H
-    if (value.startsWith('0X')) {
-      return int.parse(value.substring(2), radix: 16);
-    } else if (value.endsWith('H')) {
-      return int.parse(value.substring(0, value.length - 1), radix: 16);
     }
     
     // Decimal

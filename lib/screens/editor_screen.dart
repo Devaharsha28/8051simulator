@@ -247,6 +247,12 @@ END
                 ),
               ),
               const SizedBox(width: 4),
+              IconButton(
+                onPressed: _isAssembling ? null : () => _assembleAndLoad(),
+                icon: const Icon(Icons.bolt),
+                tooltip: 'Flash Program (Assemble + Load)',
+              ),
+              const SizedBox(width: 4),
               // Step button
               IconButton(
                 onPressed: simulator.isProgramLoaded && !simulator.isRunning && !_isAssembling

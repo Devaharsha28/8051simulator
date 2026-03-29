@@ -8,6 +8,7 @@ import '../widgets/registers_view.dart';
 import '../widgets/memory_view.dart';
 import 'editor_screen.dart';
 import 'example_programs_screen.dart';
+import 'interfacing_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -234,6 +235,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   },
                 ),
                 
+                const Divider(height: 1),
+
+                ListTile(
+                  leading: const Icon(Icons.account_tree_outlined),
+                  title: const Text('Interfacing Lab'),
+                  subtitle: const Text('Drag-and-drop circuit workspace'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const InterfacingScreen(),
+                      ),
+                    );
+                  },
+                ),
+
                 const Divider(height: 1),
                 
                 // About

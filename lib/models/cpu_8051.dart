@@ -1,6 +1,14 @@
 /// 8051 Microcontroller CPU Emulator
 /// Instruction-accurate (not cycle-accurate) implementation for educational use
 class Cpu8051 {
+  static const int _sfrTcon = 0x88;
+  static const int _sfrTmod = 0x89;
+  static const int _sfrTl0 = 0x8A;
+  static const int _sfrTl1 = 0x8B;
+  static const int _sfrTh0 = 0x8C;
+  static const int _sfrTh1 = 0x8D;
+  static const int _sfrP2 = 0xA0;
+
   // ============================================================================
   // Memory and Registers
   // ============================================================================
@@ -211,6 +219,7 @@ class Cpu8051 {
     
     final opcode = fetch();
     executeInstruction(opcode);
+    _tickTimers();
     return true;
   }
   
@@ -889,13 +898,14 @@ class Cpu8051 {
       
       // MOVX A, @DPTR
       case 0xE0:
-        regA = 0; // External memory not implemented
+        regA = xram[dptr];
         break;
       
       // MOVX A, @R0, MOVX A, @R1
       case 0xE2:
       case 0xE3:
-        regA = 0; // External memory not implemented
+        final xaddr = ((ram[_sfrP2] << 8) | getRn(opcode & 1)) & 0xFFFF;
+        regA = xram[xaddr];
         break;
       
       // CLR A
@@ -928,13 +938,14 @@ class Cpu8051 {
       
       // MOVX @DPTR, A
       case 0xF0:
-        // External memory not implemented
+        xram[dptr] = regA;
         break;
       
       // MOVX @R0, A, MOVX @R1, A
       case 0xF2:
       case 0xF3:
-        // External memory not implemented
+        final xaddr = ((ram[_sfrP2] << 8) | getRn(opcode & 1)) & 0xFFFF;
+        xram[xaddr] = regA;
         break;
       
       // CPL A
@@ -972,6 +983,67 @@ class Cpu8051 {
     
     // Update parity after instruction
     updateParity();
+  }
+
+  void _tickTimers() {
+    final tcon = ram[_sfrTcon];
+    final tr0 = (tcon & 0x10) != 0;
+    final tr1 = (tcon & 0x40) != 0;
+
+    if (tr0) {
+      _incrementTimer0();
+    }
+    if (tr1) {
+      _incrementTimer1();
+    }
+  }
+
+  void _incrementTimer0() {
+    final mode = ram[_sfrTmod] & 0x03;
+
+    if (mode == 2) {
+      final next = ram[_sfrTl0] + 1;
+      if (next > 0xFF) {
+        ram[_sfrTl0] = ram[_sfrTh0] & 0xFF;
+        ram[_sfrTcon] |= 0x20; // TF0
+      } else {
+        ram[_sfrTl0] = next & 0xFF;
+      }
+      return;
+    }
+
+    // Mode 0/1/3 fallback to 16-bit count for simulator simplicity.
+    final current = ((ram[_sfrTh0] << 8) | ram[_sfrTl0]) & 0xFFFF;
+    final next = (current + 1) & 0xFFFF;
+    ram[_sfrTh0] = (next >> 8) & 0xFF;
+    ram[_sfrTl0] = next & 0xFF;
+    if (next == 0x0000) {
+      ram[_sfrTcon] |= 0x20; // TF0
+    }
+  }
+
+  void _incrementTimer1() {
+    final mode = (ram[_sfrTmod] >> 4) & 0x03;
+
+    if (mode == 2) {
+      final next = ram[_sfrTl1] + 1;
+      if (next > 0xFF) {
+        ram[_sfrTl1] = ram[_sfrTh1] & 0xFF;
+        ram[_sfrTcon] |= 0x80; // TF1
+      } else {
+        ram[_sfrTl1] = next & 0xFF;
+      }
+      return;
+    }
+
+    // Mode 0/1/3 fallback to 16-bit count for simulator simplicity.
+    final current = ((ram[_sfrTh1] << 8) | ram[_sfrTl1]) & 0xFFFF;
+    final next = (current + 1) & 0xFFFF;
+    ram[_sfrTh1] = (next >> 8) & 0xFF;
+    ram[_sfrTl1] = next & 0xFF;
+    if (next == 0x0000) {
+      ram[_sfrTcon] |= 0x80; // TF1
+    }
   }
   
   // ============================================================================
